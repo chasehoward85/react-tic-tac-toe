@@ -1,0 +1,26 @@
+table {
+	border-collapse: collapse;
+}
+
+td {
+  width: 120px;
+  height: 120px;
+  text-align: center;
+  font-size: 48px;
+  cursor: default;
+}
+
+.emptyCell:hover {
+  background-color: #eee;
+  cursor: pointer;
+}
+
+.verticalLines {
+  border-left: 3px solid black;
+  border-right: 3px solid black;
+}
+
+.horizontalLines {
+  border-top: 3px solid black;
+  border-bottom: 3px solid black;
+}
