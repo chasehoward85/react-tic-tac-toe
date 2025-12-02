@@ -24,7 +24,11 @@ const TicTacToeGame = () => {
 	const [isPlayersTurn, setIsPlayersTurn] = useState(false);
 
 	useEffect(() => {
-		let newSocket = socketIOClient('http://127.0.0.1:8080');
+		const serverUrl = process.env.NODE_ENV === 'development'
+			? 'http://127.0.0.1:8080'
+			: 'https://react-tic-tac-toe-htsr.onrender.com';
+
+		let newSocket = socketIOClient(serverUrl);
 		setSocket(newSocket);
 
 		newSocket.on('info', data => {
