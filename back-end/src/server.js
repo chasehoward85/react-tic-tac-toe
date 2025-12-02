@@ -13,12 +13,20 @@ import {
 	DRAW,
 } from './gameStates.js';
 
+let gamesInProgress = {};
+let previousGames = [];
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let expressApp = express();
 
 expressApp.use(express.static(path.join(__dirname, '../../front-end/build')));
+
+expressApp.get('/previous-games', (req, res) => {
+	res.json(previousGames);
+});
+
 expressApp.get('/{*any}', (req, res) => {
 	res.sendFile(path.join(__dirname, '../../front-end/build/index.html'));
 });
@@ -38,9 +46,7 @@ const getStartingMatrix = () => {
 	];
 }
 
-let gamesInProgress = {};
-
-function createNewGame() {
+function createNewGame(isAutoJoin) {
 	return {
 		id: uuid(),
 		playerXSocket: null,
@@ -48,15 +54,28 @@ function createNewGame() {
 		playerXMoves: getStartingMatrix(),
 		playerOMoves: getStartingMatrix(),
 		currentPlayer: 'X',
+		isAutoJoin,
 	};
 }
 
 io.on('connection', socket => {
-	const gameWithOnePlayer = Object.values(gamesInProgress).find(game => game.playerXSocket && !game.playerOSocket);
+	const { shouldCreateGame, gameId: gameIdString } = socket.handshake.query;
+	const gameId = gameIdString === 'undefined' ? undefined : gameIdString;
+
+	let existingGame;
+
+	if(gameId) {
+		existingGame = gamesInProgress[gameId];
+	}
+	else {
+		existingGame = Object.values(gamesInProgress)
+			.find(game => game.isAutoJoin &&  game.playerXSocket && !game.playerOSocket);
+	}
+
 	let game;
 
-	if(gameWithOnePlayer) {		// Second player has joined
-		game = gameWithOnePlayer;
+	if(existingGame && !shouldCreateGame) {		// Second player has joined
+		game = existingGame;
 
 		game.playerOSocket = socket;
 		game.playerOSocket.emit('start');
@@ -79,8 +98,12 @@ io.on('connection', socket => {
 		});
 	}
 	else {		// First player has joined
-		const newGame = createNewGame();
+		const newGame = createNewGame(!shouldCreateGame);
 		gamesInProgress[newGame.id] = newGame;
+
+		if(shouldCreateGame) {
+			socket.emit('gameId', newGame.id);
+		}
 
 		newGame.playerXSocket = socket;
 
@@ -142,11 +165,6 @@ io.on('connection', socket => {
 			playerOSocket.emit('lose');
 
 			console.log(`Player X has won game ${game.id}`);
-
-			playerXSocket.disconnect();
-			playerOSocket.disconnect();
-
-			delete gamesInProgress[game.id];
 		}
 
 		if(nextGameState === PLAYER_O_WINS) {
@@ -154,11 +172,6 @@ io.on('connection', socket => {
 			playerXSocket.emit('lose');
 
 			console.log(`Player O has won game ${game.id}`);
-
-			playerXSocket.disconnect();
-			playerOSocket.disconnect();
-			
-			delete gamesInProgress[game.id];
 		}
 
 		if(nextGameState === DRAW) {
@@ -166,10 +179,18 @@ io.on('connection', socket => {
 			playerOSocket.emit('tie');
 
 			console.log(`Game ${game.id} has tied`);
+		}
 
+		if([PLAYER_X_WINS, PLAYER_O_WINS, DRAW].includes(nextGameState)) {
 			playerXSocket.disconnect();
 			playerOSocket.disconnect();
 			
+			previousGames.push({
+				id: game.id,
+				playerXMoves,
+				playerOMoves,
+			});
+
 			delete gamesInProgress[game.id];
 		}
 	});

@@ -1,11 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+import axios from 'axios';
 
 import TicTacToeGame from './components/TicTacToeGame';
+import PreviousGamesList from './components/PreviousGamesList';
 
 import './App.css';
 
 function App() {
 	const [gameMode, setGameMode] = useState('');
+	const [gameIdText, setGameIdText] = useState('');
+	const [gameId, setGameId] = useState();
+
+	const [previousGames, setPreviousGames] = useState([]);
+
+	useEffect(() => {
+		const loadPreviousGames = async () => {
+			const response = await axios.get('/previous-games');
+			const previousGames = response.data;
+			
+			console.log(previousGames);
+
+			setPreviousGames(previousGames);
+		}
+
+		loadPreviousGames();
+	}, []);
 
 	return (
 		<div className="content-container">
@@ -17,6 +37,24 @@ function App() {
 				</>
 			)}
 			{gameMode === 'auto' && <TicTacToeGame />}
+			{gameMode === 'host' && <TicTacToeGame isHost />}
+			{gameMode === 'join' && (
+				gameId ? (
+					<TicTacToeGame gameId={gameId} />
+				) : (
+					<>
+					<input
+						type="text"
+						placeholder="Enter the ID of the game you want to join"
+						value={gameIdText}
+						onChange={e => setGameIdText(e.target.value)} />
+					
+					<button onClick={() => setGameId(gameIdText)}>Join Game</button>
+					</>
+				)
+			)}
+
+			<PreviousGamesList games={previousGames} />
 		</div>
 	);
 }

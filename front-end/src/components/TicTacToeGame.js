@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import socketIOClient from "socket.io-client";
 
 import TicTacToeBoard from './TicTacToeBoard';
@@ -11,7 +12,7 @@ const getStartingMatrix = () => {
 	];
 }
 
-const TicTacToeGame = () => {
+const TicTacToeGame = ({ isHost, gameId }) => {
 	const [playerXMoves, setPlayerXMoves] = useState(getStartingMatrix());
 	const [playerOMoves, setPlayerOMoves] = useState(getStartingMatrix());
 
@@ -22,13 +23,19 @@ const TicTacToeGame = () => {
 	const [socket, setSocket] = useState(null);
 	const [playerIsWaiting, setPlayerIsWaiting] = useState(true);
 	const [isPlayersTurn, setIsPlayersTurn] = useState(false);
+	const [createdGameId, setCreatedGameId] = useState('');
 
 	useEffect(() => {
 		const serverUrl = process.env.NODE_ENV === 'development'
 			? 'http://127.0.0.1:8080'
 			: 'https://react-tic-tac-toe-htsr.onrender.com';
 
-		let newSocket = socketIOClient(serverUrl);
+		let newSocket = socketIOClient(serverUrl, {
+			query: {
+				shouldCreateGame: isHost ? true : '',
+				gameId,
+			 },
+		});
 		setSocket(newSocket);
 
 		newSocket.on('info', data => {
@@ -37,6 +44,10 @@ const TicTacToeGame = () => {
 
 		newSocket.on('start', () => {
 			setPlayerIsWaiting(false)
+		});
+
+		newSocket.on('gameId', gameId => {
+			setCreatedGameId(gameId);
 		});
 
 		newSocket.on('other player turn', () => {
@@ -72,7 +83,12 @@ const TicTacToeGame = () => {
 	}
 
 	if(playerIsWaiting) {
-		return <h1>Waiting for another player to join...</h1>
+		return (
+			<>
+			<h1>Waiting for another player to join...</h1>
+			{createdGameId && <h3>The game id is: {createdGameId}</h3>}
+			</>
+		);
 	}
 
 	const gameIsOver = playerIsWinner || playerIsLoser || gameIsTie;
